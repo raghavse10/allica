@@ -1,0 +1,78 @@
+services:
+  # ── API (FastAPI) ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: solution/Dockerfile
+    image: allica-api:local
+    ports: ["8000:8000"]
+    volumes:
+      - allica_data:/var/lib/allica
+    environment:
+      DATABASE_URL: "sqlite:////var/lib/allica/allica.sqlite"
+      ALLICA_DB_AUTO_MIGRATE: "true"
+      ALLICA_LOG_LEVEL: INFO
+      # When the Web service calls us from outside the docker network, the
+      # browser will hit http://localhost:3000 then proxy to us via Next's
+      # rewrite. Keep CORS open in this co-located mode; tighten in prod.
+      ALLICA_CORS_ORIGINS: "*"
+      # Drop your LLM key here to enable LLM email drafting.
+      # GEMINI_API_KEY: ""
+      # OPENAI_API_KEY: ""
+
+  # ── Web (Next.js) ──────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # Leave NEXT_PUBLIC_API_URL unset → browser uses /api/* proxy.
+      # Set it (and rebuild) when you want the browser to call the API
+      # directly, e.g. for an independent Vercel deploy.
+    image: allica-web:local
+    ports: ["3000:3000"]
+    depends_on:
+      - api
+    environment:
+      # Server-side fetches from the Web container reach the API by its
+      # docker service hostname. The browser never sees this.
+      ALLICA_API_URL: "http://api:8000"
+
+  # ── Optional Postgres profile (production-shaped) ──────────────────────
+  # docker compose --profile postgres up
+  api-pg:
+    profiles: ["postgres"]
+    build:
+      context: ..
+      dockerfile: solution/Dockerfile
+    image: allica-api:local
+    ports: ["8001:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg://allica:allica@db:5432/allica"
+      ALLICA_DB_AUTO_MIGRATE: "false"
+      ALLICA_LOG_LEVEL: INFO
+      ALLICA_CORS_ORIGINS: "http://localhost:3000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn allica.api.app:app --host 0.0.0.0 --port 8000"
+
+  db:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: allica
+      POSTGRES_PASSWORD: allica
+      POSTGRES_DB: allica
+    volumes:
+      - allica_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U allica -d allica"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  allica_data:
+  allica_pg:

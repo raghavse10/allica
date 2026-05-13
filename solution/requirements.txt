@@ -1,0 +1,17 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# Storage
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+# psycopg[binary]>=3.1.0   # uncomment if using Postgres in production
+
+# Test-only
+pytest>=7.4.0
+httpx>=0.27.0              # for FastAPI TestClient
+
+# Optional LLM providers — install only the one you have a key for.
+# google-genai>=0.3.0   # for GEMINI_API_KEY
+# openai>=1.30.0        # for OPENAI_API_KEY

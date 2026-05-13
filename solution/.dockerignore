@@ -1,0 +1,11 @@
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.sqlite
+*.sqlite-journal
+local.env
+.env
+.env.local
+node_modules
